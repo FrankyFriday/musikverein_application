@@ -14,14 +14,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
+      - uses: actions/checkout@v4
+
+      # If your Dart/Flutter project isn't in the root, add this step:
+      # - name: Change to project directory
+      #   run: cd <your_project_directory>
+
       - uses: subosito/flutter-action@v2
 
-        # Replace dependency installation
       - name: Install dependencies
         run: flutter pub get
 
-        # Replace test step
       - name: Run tests
         run: flutter test
