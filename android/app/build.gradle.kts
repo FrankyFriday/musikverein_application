@@ -37,6 +37,26 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+        flavorDimensions += "default"
+
+    productFlavors {
+        create("dev") {
+            dimension = "default"
+            applicationId = "com.musikvereinscharrel.musikverein_application.dev"
+            versionNameSuffix = "-dev"
+        }
+        create("test") {
+            dimension = "default"
+            applicationId = "com.musikvereinscharrel.musikverein_application.test"
+            versionNameSuffix = "-test"
+        }
+        create("prod") {
+            dimension = "default"
+            applicationId = "com.musikvereinscharrel.musikverein_application"
+        }
+    }
+
 }
 
 flutter {
