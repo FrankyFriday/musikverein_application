@@ -40,3 +40,13 @@ jobs:
       # want to change this to 'flutter test'.
       - name: Run tests
         run: dart test
+        # Replace setup-dart with setup-flutter
+      - uses: subosito/flutter-action@v2
+
+        # Replace dependency installation
+      - name: Install dependencies
+        run: flutter pub get
+
+        # Replace test step
+      - name: Run tests
+        run: flutter test
