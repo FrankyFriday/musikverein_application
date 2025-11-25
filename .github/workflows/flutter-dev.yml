@@ -31,3 +31,6 @@ jobs:
         with:
             name: dev-apk
             path: build/app/outputs/flutter-apk/app-dev-debug.apk
+            
+      - name: Check outdated dependencies
+        run: flutter pub outdated
