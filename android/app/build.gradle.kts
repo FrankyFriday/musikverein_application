@@ -1,14 +1,15 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // Flutter Gradle Plugin muss nach Android und Kotlin Plugins angewendet werden
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.musikverein_application"
+    namespace = "com.musikvereinscharrel.musikverein_application" // Einheitlicher Package-Name für Prod
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    buildToolsVersion = ''
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -16,14 +17,11 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.musikverein_application"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.musikvereinscharrel.musikverein_application" // Standard Application ID für prod
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -32,13 +30,22 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("debug")
         }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+
     }
 
-        flavorDimensions += "default"
+    flavorDimensions += "default"
 
     productFlavors {
         create("dev") {
@@ -46,10 +53,10 @@ android {
             applicationId = "com.musikvereinscharrel.musikverein_application.dev"
             versionNameSuffix = "-dev"
         }
-        create("test") {
+        create("qa") {  // <-- geändert von 'test' zu 'qa'
             dimension = "default"
-            applicationId = "com.musikvereinscharrel.musikverein_application.test"
-            versionNameSuffix = "-test"
+            applicationId = "com.musikvereinscharrel.musikverein_application.qa"
+            versionNameSuffix = "-qa"
         }
         create("prod") {
             dimension = "default"
