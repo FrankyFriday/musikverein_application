@@ -12,10 +12,10 @@ class MusicianSetupPage extends StatefulWidget {
 class _MusicianSetupPageState extends State<MusicianSetupPage> {
   final _instruments = [
     'Flöte', 'Klarinette', 'Trompete', 'Horn',
-    'Posaune', 'Schlagzeug', 'Sonstiges'
+    'Posaune', 'Saxophon', 'Tuba', 'Tenorhorn'
   ];
 
-  final _voices = ['1. Stimme', '2. Stimme', '3. Stimme', 'Bass', 'Solo'];
+  final _voices = ['1. Stimme', '2. Stimme', '3. Stimme'];
 
   String? _selectedInstrument;
   String? _selectedVoice;

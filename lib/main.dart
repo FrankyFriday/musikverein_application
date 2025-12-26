@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'musician_setup.dart';
-import 'musician_page.dart';
-
 void main() {
   runApp(const MyApp());
 }
