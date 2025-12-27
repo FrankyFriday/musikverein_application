@@ -54,12 +54,14 @@ class _MusicianSetupPageState extends State<MusicianSetupPage> {
 
     await _savePrefs();
 
+    // Hier wird die Stimme 1,2 oder 3 korrekt weitergegeben
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => MusicianPage(
           instrument: _selectedInstrument!,
-          voice: _selectedVoice!, conductorPort: 4041,
+          voice: _selectedVoice!, // z.B. "1. Stimme"
+          conductorPort: 4041,
         ),
       ),
     );
@@ -96,15 +98,12 @@ class _MusicianSetupPageState extends State<MusicianSetupPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
               _buildDropdown(
                 value: _selectedInstrument,
                 items: _instruments,
                 onChanged: (v) => setState(() => _selectedInstrument = v),
               ),
-
               const SizedBox(height: 24),
-
               Text(
                 'Wähle deine Stimme',
                 style: theme.textTheme.headlineSmall?.copyWith(
@@ -112,22 +111,18 @@ class _MusicianSetupPageState extends State<MusicianSetupPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 8),
-
               _buildDropdown(
                 value: _selectedVoice,
                 items: _voices,
                 onChanged: (v) => setState(() => _selectedVoice = v),
               ),
-
               const SizedBox(height: 48),
               Center(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[700],
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 48, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -135,8 +130,7 @@ class _MusicianSetupPageState extends State<MusicianSetupPage> {
                   onPressed: _openMusician,
                   child: const Text(
                     'Weiter als Musiker',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

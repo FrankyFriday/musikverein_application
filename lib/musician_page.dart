@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 class MusicianPage extends StatefulWidget {
   final String instrument;
@@ -23,7 +26,7 @@ class MusicianPage extends StatefulWidget {
 }
 
 class _MusicianPageState extends State<MusicianPage> {
-  IOWebSocketChannel? _channel;
+  WebSocketChannel? _channel;
   final List<ReceivedPiece> _received = [];
   String _status = 'Verbinde…';
   late String _clientId;
@@ -38,6 +41,7 @@ class _MusicianPageState extends State<MusicianPage> {
   }
 
   Future<String?> _getLocalIp() async {
+    if (kIsWeb) return null; // Keine lokale IP auf Web notwendig
     final interfaces = await NetworkInterface.list();
     for (var interface in interfaces) {
       for (var addr in interface.addresses) {
@@ -56,34 +60,38 @@ class _MusicianPageState extends State<MusicianPage> {
     });
 
     final ip = await _getLocalIp();
-    if (ip == null) {
-      setState(() {
-        _status = "Keine lokale IP-Adresse gefunden";
-        _isLoading = false;
-      });
-      return;
-    }
+    _localIp = ip;
+
+    if (!mounted) return;
 
     setState(() {
-      _localIp = ip;
-      _status = "Lokale IP gefunden: $ip — verbinde…";
+      _status = ip != null ? "Lokale IP gefunden: $ip — verbinde…" : "Keine lokale IP-Adresse gefunden";
     });
 
-    await _tryConnectWithIp(ip);
+    if (ip != null || kIsWeb) {
+      await _connectToConductor(ip ?? 'localhost');
+    }
+
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
-  Future<void> _tryConnectWithIp(String ip) async {
+  Future<void> _connectToConductor(String ip) async {
     final uri = "ws://$ip:${widget.conductorPort}";
     debugPrint('Versuche Verbindung zu $uri');
 
     try {
-      final socket = await WebSocket.connect(uri);
-      setState(() {
+      if (kIsWeb) {
+        _channel = WebSocketChannel.connect(Uri.parse(uri));
+      } else {
+        final socket = await WebSocket.connect(uri);
         _channel = IOWebSocketChannel(socket);
-        _status = 'Mit Dirigent verbunden (IP: $ip)';
-      });
+      }
 
+      if (!mounted) return;
+      setState(() => _status = 'Mit Dirigent verbunden (IP: $ip)');
+
+      // Registrierung
       final reg = jsonEncode({
         'type': 'register',
         'clientId': _clientId,
@@ -92,19 +100,20 @@ class _MusicianPageState extends State<MusicianPage> {
       });
       _channel!.sink.add(reg);
 
+      // Listener
       _channel!.stream.listen((message) async {
         await _handleMessage(message);
       }, onDone: () {
+        if (!mounted) return;
         setState(() => _status = 'Verbindung beendet');
       }, onError: (e) {
+        if (!mounted) return;
         setState(() => _status = 'Fehler: $e');
       });
     } catch (e, st) {
-      debugPrint('Fehler beim Verbinden mit WebSocket: $e');
-      debugPrint('$st');
-      setState(() {
-        _status = 'Verbindung fehlgeschlagen: $e';
-      });
+      debugPrint('Fehler beim Verbinden: $e\n$st');
+      if (!mounted) return;
+      setState(() => _status = 'Verbindung fehlgeschlagen: $e');
     }
   }
 
@@ -119,6 +128,7 @@ class _MusicianPageState extends State<MusicianPage> {
         final targetInstrument = map['instrument'];
         final targetVoice = map['voice'];
 
+        // Filter: nur passende Instrument/Stimme
         if (targetInstrument != null && targetInstrument != widget.instrument) return;
         if (targetVoice != null && targetVoice != widget.voice) return;
 
@@ -126,28 +136,28 @@ class _MusicianPageState extends State<MusicianPage> {
         final bytes = base64Decode(dataB64);
         final file = await saveBytesAsFile(bytes, name);
 
+        if (!mounted) return;
         setState(() {
-          _received.add(
-            ReceivedPiece(
-              name: name,
-              path: file.path,
-              receivedAt: DateTime.now(),
-            ),
-          );
+          _received.add(ReceivedPiece(
+            name: name,
+            path: file.path,
+            receivedAt: DateTime.now(),
+          ));
         });
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Neue Noten empfangen: $name')),
-          );
-        }
+        // SnackBar zur Benachrichtigung
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Neue Noten empfangen: $name')),
+        );
       }
 
       if (type == 'status') {
+        if (!mounted) return;
         setState(() => _status = map['text'] ?? '');
       }
-    } catch (e) {
-      debugPrint('Fehler beim Verarbeiten: $e');
+    } catch (e, st) {
+      debugPrint('Fehler beim Verarbeiten: $e\n$st');
     }
   }
 
@@ -187,12 +197,14 @@ class _MusicianPageState extends State<MusicianPage> {
             ),
             trailing: IconButton(
               icon: const Icon(Icons.open_in_new, color: Colors.black87),
-              tooltip: 'Datei öffnen (noch nicht implementiert)',
+              tooltip: 'PDF anzeigen',
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Datei gespeichert: ${p.path}')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PdfViewerScreen(filePath: p.path, title: p.name),
+                  ),
                 );
-                // TODO: Datei-Öffnen implementieren
               },
             ),
           ),
@@ -201,10 +213,22 @@ class _MusicianPageState extends State<MusicianPage> {
     );
   }
 
+  Widget _buildInfoRow(String label, String value,
+      {FontWeight fontWeight = FontWeight.normal, double fontSize = 16, Color color = Colors.black}) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(text: '$label ', style: TextStyle(fontWeight: fontWeight, fontSize: fontSize, color: color)),
+          TextSpan(text: value, style: TextStyle(fontSize: fontSize, color: color)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // eInk-freundlich
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text('Marschpad Musiker', style: TextStyle(color: Colors.white)),
@@ -267,23 +291,6 @@ class _MusicianPageState extends State<MusicianPage> {
       ),
     );
   }
-
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    FontWeight fontWeight = FontWeight.normal,
-    double fontSize = 16,
-    Color color = Colors.black,
-  }) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(text: label + ' ', style: TextStyle(fontWeight: fontWeight, fontSize: fontSize, color: color)),
-          TextSpan(text: value, style: TextStyle(fontSize: fontSize, color: color)),
-        ],
-      ),
-    );
-  }
 }
 
 class ReceivedPiece {
@@ -298,10 +305,25 @@ class ReceivedPiece {
   });
 }
 
-/// Beispielhafte Implementierung für saveBytesAsFile (aus shared.dart)
 Future<File> saveBytesAsFile(Uint8List bytes, String filename) async {
   final dir = await getApplicationDocumentsDirectory();
   final file = File('${dir.path}/$filename');
   await file.writeAsBytes(bytes, flush: true);
   return file;
+}
+
+/// PDF Viewer Screen
+class PdfViewerScreen extends StatelessWidget {
+  final String filePath;
+  final String title;
+
+  const PdfViewerScreen({super.key, required this.filePath, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: SfPdfViewer.file(File(filePath)),
+    );
+  }
 }

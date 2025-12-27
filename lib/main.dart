@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'musician_setup.dart';
+
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -15,6 +16,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue.shade700),
         useMaterial3: true,
+        fontFamily: 'Roboto',
       ),
       home: const SplashLanding(),
     );
@@ -23,7 +25,7 @@ class MyApp extends StatelessWidget {
 
 class SplashLanding extends StatefulWidget {
   const SplashLanding({super.key});
-  
+
   @override
   State<SplashLanding> createState() => _SplashLandingState();
 }
@@ -57,29 +59,34 @@ class SplashScreen extends StatelessWidget {
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.music_note, size: 120, color: Colors.white),
-            SizedBox(height: 20),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.music_note, size: 100, color: Colors.white),
+            ),
+            const SizedBox(height: 24),
             Text(
               'Marschpad',
-              style: TextStyle(
-                fontSize: 36,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Musikverein Scharrel',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white70,
-                letterSpacing: 1.5,
-              ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white70,
+                    letterSpacing: 1.5,
+                  ),
             ),
-            SizedBox(height: 30),
-            CircularProgressIndicator(
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(
               color: Colors.white,
               strokeWidth: 3,
             ),
@@ -98,11 +105,6 @@ class RoleSelectionPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Marschpad - Rolle wählen'),
-        centerTitle: true,
-        elevation: 3,
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -111,32 +113,35 @@ class RoleSelectionPage extends StatelessWidget {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Wähle deine Rolle',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Wähle deine Rolle',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 32),
-                RoleCard(
-                  icon: Icons.music_note,
-                  title: 'Ich bin Musiker',
-                  description: 'Spiele mit deinem Instrument live mit.',
-                  color: Colors.blue.shade400,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MusicianSetupPage()),
+                  const SizedBox(height: 40),
+                  RoleCard(
+                    icon: Icons.music_note,
+                    title: 'Musiker',
+                    description: 'Spiele live mit deinem Instrument mit.',
+                    color: Colors.white.withOpacity(0.15),
+                    iconBackground: Colors.white.withOpacity(0.2),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MusicianSetupPage()),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -150,6 +155,7 @@ class RoleCard extends StatelessWidget {
   final String title;
   final String description;
   final Color color;
+  final Color iconBackground;
   final VoidCallback onTap;
 
   const RoleCard({
@@ -158,6 +164,7 @@ class RoleCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.color,
+    required this.iconBackground,
     required this.onTap,
   });
 
@@ -166,17 +173,17 @@ class RoleCard extends StatelessWidget {
     return Card(
       color: color,
       elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: Colors.white.withOpacity(0.3),
+                backgroundColor: iconBackground,
                 child: Icon(icon, size: 32, color: Colors.white),
               ),
               const SizedBox(width: 20),
@@ -199,7 +206,7 @@ class RoleCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white70),
+              const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 18),
             ],
           ),
         ),
