@@ -5,6 +5,9 @@ void main() {
   runApp(const MyApp());
 }
 
+// =========================
+// APP ROOT
+// =========================
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -14,15 +17,20 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Marschpad - Musikverein Scharrel',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue.shade700),
         useMaterial3: true,
         fontFamily: 'Roboto',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue.shade700,
+        ),
       ),
       home: const SplashLanding(),
     );
   }
 }
 
+// =========================
+// SPLASH LANDING
+// =========================
 class SplashLanding extends StatefulWidget {
   const SplashLanding({super.key});
 
@@ -31,183 +39,147 @@ class SplashLanding extends StatefulWidget {
 }
 
 class _SplashLandingState extends State<SplashLanding> {
-  bool _initialized = false;
-
   @override
   void initState() {
     super.initState();
+
     Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _initialized = true;
-      });
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MusicianSetupPage()),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return _initialized ? const RoleSelectionPage() : const SplashScreen();
+    return const SplashScreen();
   }
 }
 
-class SplashScreen extends StatelessWidget {
+// =========================
+// BEAUTIFUL SPLASH SCREEN
+// =========================
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D47A1),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.music_note, size: 100, color: Colors.white),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Marschpad',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Musikverein Scharrel',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white70,
-                    letterSpacing: 1.5,
-                  ),
-            ),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class RoleSelectionPage extends StatelessWidget {
-  const RoleSelectionPage({super.key});
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0D47A1),
+              Color(0xFF0A2E6E),
+            ],
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Center(
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Wähle deine Rolle',
-                    style: theme.textTheme.headlineSmall?.copyWith(
+                  // 🎵 Icon mit Glow
+                  Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.35),
+                          blurRadius: 25,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.music_note,
+                      size: 90,
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
                     ),
                   ),
+
+                  const SizedBox(height: 28),
+
+                  const Text(
+                    'Marschpad',
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    'Musikverein Scharrel',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white.withOpacity(0.75),
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+
                   const SizedBox(height: 40),
-                  RoleCard(
-                    icon: Icons.music_note,
-                    title: 'Musiker',
-                    description: 'Spiele live mit deinem Instrument mit.',
-                    color: Colors.white.withOpacity(0.15),
-                    iconBackground: Colors.white.withOpacity(0.2),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MusicianSetupPage()),
+
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class RoleCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final Color color;
-  final Color iconBackground;
-  final VoidCallback onTap;
-
-  const RoleCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.color,
-    required this.iconBackground,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: color,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: iconBackground,
-                child: Icon(icon, size: 32, color: Colors.white),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        )),
-                    const SizedBox(height: 6),
-                    Text(description,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        )),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 18),
-            ],
           ),
         ),
       ),

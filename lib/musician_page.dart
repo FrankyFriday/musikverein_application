@@ -41,10 +41,9 @@ class _MusicianPageState extends State<MusicianPage> {
   }
 
   Future<String?> _getLocalIp() async {
-    if (kIsWeb) return null; // Keine lokale IP auf Web notwendig
-    final interfaces = await NetworkInterface.list();
-    for (var interface in interfaces) {
-      for (var addr in interface.addresses) {
+    if (kIsWeb) return null;
+    for (var iface in await NetworkInterface.list()) {
+      for (var addr in iface.addresses) {
         if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
           return addr.address;
         }
@@ -65,7 +64,9 @@ class _MusicianPageState extends State<MusicianPage> {
     if (!mounted) return;
 
     setState(() {
-      _status = ip != null ? "Lokale IP gefunden: $ip — verbinde…" : "Keine lokale IP-Adresse gefunden";
+      _status = ip != null
+          ? 'Lokale IP gefunden – verbinde…'
+          : 'Keine lokale IP gefunden';
     });
 
     if (ip != null || kIsWeb) {
@@ -78,86 +79,57 @@ class _MusicianPageState extends State<MusicianPage> {
 
   Future<void> _connectToConductor(String ip) async {
     final uri = "ws://$ip:${widget.conductorPort}";
-    debugPrint('Versuche Verbindung zu $uri');
 
     try {
       if (kIsWeb) {
         _channel = WebSocketChannel.connect(Uri.parse(uri));
       } else {
-        final socket = await WebSocket.connect(uri);
-        _channel = IOWebSocketChannel(socket);
+        _channel = IOWebSocketChannel(await WebSocket.connect(uri));
       }
 
-      if (!mounted) return;
-      setState(() => _status = 'Mit Dirigent verbunden (IP: $ip)');
+      setState(() => _status = 'Verbunden mit Dirigent');
 
-      // Registrierung
-      final reg = jsonEncode({
+      _channel!.sink.add(jsonEncode({
         'type': 'register',
         'clientId': _clientId,
         'instrument': widget.instrument,
         'voice': widget.voice,
-      });
-      _channel!.sink.add(reg);
+      }));
 
-      // Listener
-      _channel!.stream.listen((message) async {
-        await _handleMessage(message);
-      }, onDone: () {
-        if (!mounted) return;
-        setState(() => _status = 'Verbindung beendet');
-      }, onError: (e) {
-        if (!mounted) return;
-        setState(() => _status = 'Fehler: $e');
-      });
-    } catch (e, st) {
-      debugPrint('Fehler beim Verbinden: $e\n$st');
-      if (!mounted) return;
-      setState(() => _status = 'Verbindung fehlgeschlagen: $e');
+      _channel!.stream.listen(_handleMessage,
+          onDone: () => setState(() => _status = 'Verbindung beendet'),
+          onError: (e) => setState(() => _status = 'Fehler: $e'));
+    } catch (e) {
+      setState(() => _status = 'Verbindung fehlgeschlagen');
     }
   }
 
   Future<void> _handleMessage(dynamic message) async {
-    debugPrint('Empfangene Nachricht: $message');
-    try {
-      final map = jsonDecode(message as String);
-      final type = map['type'];
+    final map = jsonDecode(message as String);
 
-      if (type == 'send_piece') {
-        final name = map['name'] ?? 'unknown.pdf';
-        final targetInstrument = map['instrument'];
-        final targetVoice = map['voice'];
+    if (map['type'] == 'send_piece') {
+      if (map['instrument'] != null &&
+          map['instrument'] != widget.instrument) return;
+      if (map['voice'] != null && map['voice'] != widget.voice) return;
 
-        // Filter: nur passende Instrument/Stimme
-        if (targetInstrument != null && targetInstrument != widget.instrument) return;
-        if (targetVoice != null && targetVoice != widget.voice) return;
+      final bytes = base64Decode(map['data']);
+      final file = await saveBytesAsFile(bytes, map['name']);
 
-        final dataB64 = map['data'];
-        final bytes = base64Decode(dataB64);
-        final file = await saveBytesAsFile(bytes, name);
+      setState(() {
+        _received.add(ReceivedPiece(
+          name: map['name'],
+          path: file.path,
+          receivedAt: DateTime.now(),
+        ));
+      });
 
-        if (!mounted) return;
-        setState(() {
-          _received.add(ReceivedPiece(
-            name: name,
-            path: file.path,
-            receivedAt: DateTime.now(),
-          ));
-        });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Neue Noten: ${map['name']}')),
+      );
+    }
 
-        // SnackBar zur Benachrichtigung
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Neue Noten empfangen: $name')),
-        );
-      }
-
-      if (type == 'status') {
-        if (!mounted) return;
-        setState(() => _status = map['text'] ?? '');
-      }
-    } catch (e, st) {
-      debugPrint('Fehler beim Verarbeiten: $e\n$st');
+    if (map['type'] == 'status') {
+      setState(() => _status = map['text']);
     }
   }
 
@@ -167,131 +139,152 @@ class _MusicianPageState extends State<MusicianPage> {
     super.dispose();
   }
 
-  Widget _buildReceivedList() {
-    if (_received.isEmpty) {
-      return const Center(
-        child: Text(
-          'Keine Noten empfangen.',
-          style: TextStyle(fontSize: 18, color: Colors.black54),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _received.length,
-      itemBuilder: (context, i) {
-        final p = _received[i];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            leading: const Icon(Icons.picture_as_pdf, size: 36, color: Colors.black87),
-            title: Text(
-              p.name,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              'Empfangen: ${p.receivedAt.toLocal().toString().split('.')[0]}',
-              style: const TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.open_in_new, color: Colors.black87),
-              tooltip: 'PDF anzeigen',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PdfViewerScreen(filePath: p.path, title: p.name),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value,
-      {FontWeight fontWeight = FontWeight.normal, double fontSize = 16, Color color = Colors.black}) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(text: '$label ', style: TextStyle(fontWeight: fontWeight, fontSize: fontSize, color: color)),
-          TextSpan(text: value, style: TextStyle(fontSize: fontSize, color: color)),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text('Marschpad Musiker', style: TextStyle(color: Colors.white)),
+        title: const Text('Marschpad – Musiker'),
         centerTitle: true,
-        elevation: 4,
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildInfoRow('Instrument:', widget.instrument, fontWeight: FontWeight.bold, fontSize: 22),
-              const SizedBox(height: 4),
-              _buildInfoRow('Stimme:', widget.voice, fontWeight: FontWeight.w500, fontSize: 20, color: Colors.black54),
-              const SizedBox(height: 8),
-              if (_localIp != null)
-                _buildInfoRow('Eigene IP:', _localIp!, fontWeight: FontWeight.w400, fontSize: 16, color: Colors.black54),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  'Status: $_status',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                  textAlign: TextAlign.center,
+        child: Column(
+          children: [
+            _InfoHeader(
+              instrument: widget.instrument,
+              voice: widget.voice,
+              status: _status,
+              ip: _localIp,
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _initLocalIpAndConnect,
+                icon: const Icon(Icons.wifi),
+                label: const Text('Neu verbinden'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade800,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Center(
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.black)
-                    : ElevatedButton.icon(
-                        icon: const Icon(Icons.wifi_protected_setup, size: 28),
-                        label: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                          child: Text('Neu verbinden', style: TextStyle(fontSize: 20)),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                        ),
-                        onPressed: _initLocalIpAndConnect,
+            ),
+
+            const SizedBox(height: 16),
+
+            Expanded(
+              child: _received.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Noch keine Noten empfangen',
+                        style: TextStyle(fontSize: 18, color: Colors.black54),
                       ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Erhaltene Noten:',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 8),
-              Expanded(child: _buildReceivedList()),
-            ],
-          ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _received.length,
+                      itemBuilder: (_, i) {
+                        final p = _received[i];
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          child: ListTile(
+                            leading: const Icon(Icons.picture_as_pdf,
+                                size: 36, color: Colors.red),
+                            title: Text(p.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            subtitle: Text(
+                                'Empfangen: ${p.receivedAt.toLocal().toString().split('.')[0]}'),
+                            trailing: const Icon(Icons.open_in_new),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PdfViewerScreen(
+                                      filePath: p.path, title: p.name),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+/* ===================== UI COMPONENTS ===================== */
+
+class _InfoHeader extends StatelessWidget {
+  final String instrument;
+  final String voice;
+  final String status;
+  final String? ip;
+
+  const _InfoHeader({
+    required this.instrument,
+    required this.voice,
+    required this.status,
+    this.ip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
+        ),
+        borderRadius:
+            BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(instrument,
+              style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
+          Text(voice,
+              style:
+                  const TextStyle(fontSize: 18, color: Colors.white70)),
+          if (ip != null)
+            Text('IP: $ip',
+                style: const TextStyle(
+                    fontSize: 14, color: Colors.white60)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(status,
+                style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ===================== MODELS ===================== */
 
 class ReceivedPiece {
   final String name;
@@ -312,12 +305,15 @@ Future<File> saveBytesAsFile(Uint8List bytes, String filename) async {
   return file;
 }
 
-/// PDF Viewer Screen
 class PdfViewerScreen extends StatelessWidget {
   final String filePath;
   final String title;
 
-  const PdfViewerScreen({super.key, required this.filePath, required this.title});
+  const PdfViewerScreen({
+    super.key,
+    required this.filePath,
+    required this.title,
+  });
 
   @override
   Widget build(BuildContext context) {
